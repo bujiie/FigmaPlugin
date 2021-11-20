@@ -13,5 +13,7 @@
             "./node_modules/@types",
             "./node_modules/@figma"
         ],
+        // allows using iterator
+        "downlevelIteration": true
     },
 }
