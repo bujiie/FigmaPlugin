@@ -28,7 +28,7 @@ function sortPriorityX(nodeA: SceneNode, nodeB: SceneNode): number {
 async function convertFrameNodeToImage(node: FrameNode): Promise<Uint8Array> {
     const nodeBytes: Uint8Array = await node.exportAsync()
 
-    figma.showUI(__html__, { visible: false })
+    figma.showUI(__uiFiles__.ProcessImage, { visible: false })
     figma.ui.postMessage(nodeBytes)
 
     return await new Promise((resolve, _) => {
@@ -50,7 +50,7 @@ async function convertFrameNodeToSlide(node: FrameNode): Promise<Slide> {
 function newFrame(name: string, pos: Vect2, dim: Vect2): FrameNode {
     const frame = figma.createFrame()
     frame.name = name
-    frame.clipsContent = true
+    frame.clipsContent = false
     frame.x = pos._1
     frame.y = pos._2
     frame.resize(dim._1, dim._2)
@@ -71,13 +71,12 @@ function newImage(name: string, pos: Vect2, dim: Vect2, imageBytes: Uint8Array):
     return image
 }
 
-(async function () {
+async function processSlideshow(scrapbookName: string) {
     // We will only act on FrameNodes that are direct children to the
     // current page.
     const frameNodes: Array<FrameNode> = figma.currentPage.children
         .filter(node => node.type == 'FRAME')
         .sort(sortPriorityY) as Array<FrameNode>
-
     // If one of the conversions fail, the Promise.all will discontinue
     // waiting for the remainder.
     const slides: Array<Slide> = Array()
@@ -88,6 +87,7 @@ function newImage(name: string, pos: Vect2, dim: Vect2, imageBytes: Uint8Array):
     // To keep everything separate, we will add the rasterized FrameNode
     // images to a new, more disposable page.
     const newPage = figma.createPage()
+    newPage.name = `Scrapbook It: ${scrapbookName}`
     // IMPORTANT: We must make the page we just created the current
     // page so that we can connection Reactions later. If we do not,
     // the Reactions will not be able to find the nodes referenced in
@@ -140,7 +140,7 @@ function newImage(name: string, pos: Vect2, dim: Vect2, imageBytes: Uint8Array):
         if (i == 0) {
             newPage.flowStartingPoints = [{
                 nodeId: currFrame.id,
-                name: "Start Slideshow"
+                name: scrapbookName
             }]
         }
         currFrame.reactions = [{
@@ -162,4 +162,10 @@ function newImage(name: string, pos: Vect2, dim: Vect2, imageBytes: Uint8Array):
             }
         }]
     }
-})().then(() => figma.closePlugin())
+}
+
+figma.showUI(__uiFiles__.UI)
+figma.ui.onmessage = async (message) => {
+    await processSlideshow(message.scrapbookName)
+    figma.closePlugin()
+}
